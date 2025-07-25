@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>제후 업소 상세</title>
+</head>
+<body>
+  <h1 id="title">업소 제목</h1>
+  <img id="image" src="" alt="업소 이미지" style="max-width:300px;">
+  <hr />
+  <section id="commentsSection">
+    <h2>댓글</h2>
+    <ul id="commentList"></ul>
+    <form id="commentForm">
+      <input type="text" name="content" placeholder="댓글을 입력하세요" required />
+      <button type="submit">댓글 등록</button>
+    </form>
+  </section>
+<script>
+  // affiliate.html: shows details of a single affiliate and manages comments.
+  const params = new URLSearchParams(window.location.search);
+  const affiliateId = params.get('id');
+  if (!affiliateId) {
+    alert('잘못된 접근입니다.');
+  }
+  async function fetchAffiliate() {
+    const res = await fetch('/.netlify/functions/affiliates');
+    const data = await res.json();
+    const item = data.find((a) => String(a.id) === String(affiliateId));
+    if (item) {
+      document.getElementById('title').textContent = item.title;
+      document.getElementById('image').src = item.image_url;
+    }
+  }
+  async function fetchComments() {
+    const res = await fetch('/.netlify/functions/comments?affiliate_id=' + affiliateId);
+    const data = await res.json();
+    const list = document.getElementById('commentList');
+    list.innerHTML = '';
+    data.forEach((c) => {
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.textContent = c.content;
+      span.contentEditable = true;
+      li.appendChild(span);
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = '저장';
+      saveBtn.onclick = async () => {
+        await fetch('/.netlify/functions/comments', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: c.id, content: span.textContent })
+        });
+        fetchComments();
+      };
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '삭제';
+      delBtn.onclick = async () => {
+        await fetch('/.netlify/functions/comments?id=' + c.id, {
+          method: 'DELETE'
+        });
+        fetchComments();
+      };
+      li.appendChild(saveBtn);
+      li.appendChild(delBtn);
+      list.appendChild(li);
+    });
+  }
+  document.getElementById('commentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const content = form.content.value;
+    await fetch('/.netlify/functions/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ affiliate_id: affiliateId, content })
+    });
+    form.reset();
+    fetchComments();
+  });
+  fetchAffiliate();
+  fetchComments();
+</script>
+</body>
+</html>
