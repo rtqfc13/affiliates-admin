@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>제휴업소 관리</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    form { margin-bottom: 20px; }
+    ul { list-style: none; padding: 0; }
+    li { margin-bottom: 10px; }
+    img { display: block; margin-bottom: 5px; }
+    .title { display: inline-block; margin-right: 10px; }
+    button { margin-left: 5px; }
+  </style>
+</head>
+<body>
+  <h1>제휴업소 관리</h1>
+
+  <form id="uploadForm">
+    <input type="text" name="title" placeholder="업소 제목" required />
+    <input type="file" name="file" accept="image/*" required />
+    <button type="submit">등록</button>
+  </form>
+
+  <h2>등록된 제휴업소</h2>
+  <ul id="affiliateList"></ul>
+
+  <script>
+  async function fetchAffiliates() {
+    const res = await fetch('/.netlify/functions/affiliates', { method: 'GET' });
+    const list = await res.json();
+    const ul = document.getElementById('affiliateList');
+    ul.innerHTML = '';
+    list.forEach(item => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <img src="${item.image_url || ''}" alt="${item.title}" width="100" />
+        <span contenteditable="true" data-id="${item.id}" class="title">${item.title}</span>
+        <button data-id="${item.id}" class="save">수정</button>
+        <button data-id="${item.id}" class="delete">삭제</button>
+      `;
+      ul.appendChild(li);
+    });
+  }
+
+  document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch('/.netlify/functions/affiliates', {
+      method: 'POST',
+      body: formData
+    });
+    if (res.ok) {
+      alert('등록되었습니다');
+      e.target.reset();
+      fetchAffiliates();
+    } else {
+      const msg = await res.text();
+      alert('등록 실패: ' + msg);
+    }
+  });
+
+  document.getElementById('affiliateList').addEventListener('click', async (e) => {
+    if (e.target.className === 'delete') {
+      const id = e.target.dataset.id;
+      if (!confirm('삭제하시겠습니까?')) return;
+      await fetch('/.netlify/functions/affiliates', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: parseInt(id) })
+      });
+      fetchAffiliates();
+    }
+    if (e.target.className === 'save') {
+      const id = e.target.dataset.id;
+      const li = e.target.parentElement;
+      const titleEl = li.querySelector('.title');
+      const newTitle = titleEl.textContent.trim();
+      await fetch('/.netlify/functions/affiliates', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: parseInt(id), title: newTitle })
+      });
+      alert('수정되었습니다');
+    }
+  });
+
+  fetchAffiliates();
+  </script>
+</body>
+</html>
